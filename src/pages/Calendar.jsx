@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNotification } from '../context/NotificationContext'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns'
 import { tr } from 'date-fns/locale'
-import { Plus, Clock, MapPin, Users, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Clock, MapPin, Users, Edit, Trash2, ChevronLeft, ChevronRight, Camera, Image as ImageIcon, X, Heart, BookOpen } from 'lucide-react'
 import LocationPicker from '../components/LocationPicker'
+import eventService from '../services/eventService'
+import diaryService from '../services/diaryService'
 import './Calendar.css'
 
 const Calendar = () => {
@@ -15,6 +17,14 @@ const Calendar = () => {
   const [events, setEvents] = useState([])
   const [showEventModal, setShowEventModal] = useState(false)
   const [editingEvent, setEditingEvent] = useState(null)
+  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [eventPhotos, setEventPhotos] = useState([])
+  const [showPhotoModal, setShowPhotoModal] = useState(false)
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0)
+  const fileInputRef = useRef(null)
+  const diaryFileInputRef = useRef(null)
+  const [diaryPhotos, setDiaryPhotos] = useState([])
+  const [showDiaryPhotos, setShowDiaryPhotos] = useState(false)
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
@@ -26,31 +36,41 @@ const Calendar = () => {
   })
 
   useEffect(() => {
-    // Simulated events data
-    const mockEvents = [
-      {
-        id: 1,
-        title: 'Sabah Koşusu',
-        description: 'Günlük spor rutini',
-        date: new Date(),
-        time: '07:00',
-        location: 'Park',
-        isPublic: true,
-        userId: user?.id
-      },
-      {
-        id: 2,
-        title: 'İş Toplantısı',
-        description: 'Proje değerlendirme toplantısı',
-        date: new Date(),
-        time: '14:00',
-        location: 'Ofis',
-        isPublic: false,
-        userId: user?.id
-      }
-    ]
-    setEvents(mockEvents)
+    // EventService'den etkinlikleri yükle
+    loadEvents()
+    
+    // EventService değişikliklerini dinle
+    const unsubscribe = eventService.addListener((action, event) => {
+      loadEvents()
+    })
+    
+    return () => unsubscribe()
   }, [user])
+
+  const loadEvents = () => {
+    const allEvents = eventService.getAllEvents()
+    // Tarihleri düzgün formata çevir
+    const formattedEvents = allEvents.map(event => ({
+      ...event,
+      date: new Date(event.datetime || event.date)
+    }))
+    setEvents(formattedEvents)
+  }
+
+  // Etkinlik seçildiğinde fotoğrafları yükle
+  useEffect(() => {
+    if (selectedEvent) {
+      const photos = eventService.getEventPhotos(selectedEvent.id)
+      setEventPhotos(photos)
+    }
+  }, [selectedEvent])
+
+  // Seçili tarih değiştiğinde günlük fotoğraflarını yükle
+  useEffect(() => {
+    const photos = diaryService.getDiaryPhotos(selectedDate)
+    setDiaryPhotos(photos)
+  }, [selectedDate])
+  }, [selectedEvent])
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
@@ -110,12 +130,14 @@ const Calendar = () => {
   }
 
   const handleDeleteEvent = (eventId) => {
-    setEvents(events.filter(event => event.id !== eventId))
-    addNotification({
-      type: 'toast',
-      title: 'Etkinlik silindi',
-      message: 'Etkinlik başarıyla silindi'
-    })
+    const result = eventService.deleteEvent(eventId)
+    if (result.success) {
+      addNotification({
+        type: 'toast',
+        title: 'Etkinlik silindi',
+        message: 'Etkinlik başarıyla silindi'
+      })
+    }
   }
 
   const handleFormSubmit = (e) => {
@@ -131,32 +153,214 @@ const Calendar = () => {
     }
     
     if (editingEvent) {
-      setEvents(events.map(event => 
-        event.id === editingEvent.id 
-          ? { ...event, ...eventForm }
-          : event
-      ))
-      addNotification({
-        type: 'toast',
-        title: 'Etkinlik güncellendi',
-        message: 'Etkinlik başarıyla güncellendi'
+      // Güncelleme
+      const result = eventService.updateEvent(editingEvent.id, {
+        title: eventForm.title,
+        description: eventForm.description,
+        time: eventForm.time,
+        placeName: eventForm.location,
+        coords: eventForm.locationData?.coords,
+        address: eventForm.locationData?.address,
+        visibility: eventForm.visibility,
+        isPublic: eventForm.visibility === 'PUBLIC'
       })
-    } else {
-      const newEvent = {
-        id: Date.now(),
-        ...eventForm,
-        date: selectedDate,
-        userId: user?.id || Date.now()
+      
+      if (result.success) {
+        addNotification({
+          type: 'toast',
+          title: 'Etkinlik güncellendi',
+          message: 'Etkinlik başarıyla güncellendi'
+        })
       }
-      setEvents([...events, newEvent])
-      addNotification({
-        type: 'toast',
-        title: 'Etkinlik eklendi',
-        message: 'Yeni etkinlik başarıyla eklendi'
+    } else {
+      // Yeni etkinlik oluştur
+      const datetime = new Date(selectedDate)
+      if (eventForm.time) {
+        const [hours, minutes] = eventForm.time.split(':')
+        datetime.setHours(parseInt(hours), parseInt(minutes))
+      }
+      
+      const result = eventService.createEvent({
+        title: eventForm.title,
+        description: eventForm.description,
+        datetime: datetime.toISOString(),
+        time: eventForm.time,
+        placeName: eventForm.location,
+        coords: eventForm.locationData?.coords,
+        address: eventForm.locationData?.address,
+        region: eventForm.locationData?.region,
+        visibility: eventForm.visibility,
+        category: 'social',
+        creatorUid: user?.id || 'user1',
+        creatorName: user?.name || 'Kullanıcı',
+        creatorType: 'user',
+        isPublic: eventForm.visibility === 'PUBLIC'
       })
+      
+      if (result.success) {
+        addNotification({
+          type: 'toast',
+          title: 'Etkinlik eklendi',
+          message: 'Yeni etkinlik başarıyla eklendi'
+        })
+      }
     }
     
     setShowEventModal(false)
+  }
+
+  // Fotoğraf ekleme
+  const handlePhotoAdd = (e) => {
+    if (!selectedEvent) return
+    
+    const files = Array.from(e.target.files)
+    
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        addNotification({
+          type: 'toast',
+          title: 'Hata',
+          message: 'Sadece resim dosyaları yüklenebilir'
+        })
+        return
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        addNotification({
+          type: 'toast',
+          title: 'Hata',
+          message: 'Dosya boyutu 5MB\'dan küçük olmalıdır'
+        })
+        return
+      }
+      
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const result = eventService.addPhotoToEvent(selectedEvent.id, {
+          url: event.target.result,
+          uploadedBy: user?.id || 'user1',
+          uploaderName: user?.name || 'Kullanıcı'
+        })
+        
+        if (result.success) {
+          const photos = eventService.getEventPhotos(selectedEvent.id)
+          setEventPhotos(photos)
+          
+          addNotification({
+            type: 'toast',
+            title: 'Başarılı',
+            message: 'Fotoğraf eklendi'
+          })
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+    
+    e.target.value = ''
+  }
+
+  // Etkinlik fotoğrafı silme
+  const handlePhotoDelete = (photoId) => {
+    if (!selectedEvent) return
+    
+    const result = eventService.deletePhoto(selectedEvent.id, photoId)
+    if (result.success) {
+      const photos = eventService.getEventPhotos(selectedEvent.id)
+      setEventPhotos(photos)
+      setShowPhotoModal(false)
+      
+      addNotification({
+        type: 'toast',
+        title: 'Başarılı',
+        message: 'Fotoğraf silindi'
+      })
+    }
+  }
+
+  // Günlük fotoğrafı ekleme
+  const handleDiaryPhotoAdd = (e) => {
+    const files = Array.from(e.target.files)
+    
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        addNotification({
+          type: 'toast',
+          title: 'Hata',
+          message: 'Sadece resim dosyaları yüklenebilir'
+        })
+        return
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        addNotification({
+          type: 'toast',
+          title: 'Hata',
+          message: 'Dosya boyutu 5MB\'dan küçük olmalıdır'
+        })
+        return
+      }
+      
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const result = diaryService.addPhotoToDiary(selectedDate, {
+          url: event.target.result,
+          uploadedBy: user?.id || 'user1',
+          uploaderName: user?.name || 'Kullanıcı',
+          source: 'diary'
+        })
+        
+        if (result.success) {
+          const photos = diaryService.getDiaryPhotos(selectedDate)
+          setDiaryPhotos(photos)
+          
+          addNotification({
+            type: 'toast',
+            title: 'Başarılı',
+            message: 'Fotoğraf ajandaya eklendi'
+          })
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+    
+    e.target.value = ''
+  }
+
+  // Günlük fotoğrafı silme
+  const handleDiaryPhotoDelete = (photoId) => {
+    const result = diaryService.deletePhotoFromDiary(selectedDate, photoId)
+    if (result.success) {
+      const photos = diaryService.getDiaryPhotos(selectedDate)
+      setDiaryPhotos(photos)
+      
+      addNotification({
+        type: 'toast',
+        title: 'Başarılı',
+        message: 'Fotoğraf silindi'
+      })
+    }
+  }
+
+  // Etkinlik fotoğrafını ajandaya kaydet
+  const handleSavePhotoToDiary = (photo) => {
+    const result = diaryService.addPhotoToDiary(selectedDate, {
+      url: photo.url,
+      uploadedBy: user?.id || 'user1',
+      uploaderName: user?.name || 'Kullanıcı',
+      source: 'event',
+      caption: `${selectedEvent?.title || 'Etkinlik'} etkinliğinden`
+    })
+    
+    if (result.success) {
+      const photos = diaryService.getDiaryPhotos(selectedDate)
+      setDiaryPhotos(photos)
+      
+      addNotification({
+        type: 'toast',
+        title: 'Başarılı',
+        message: 'Fotoğraf ajandanıza kaydedildi'
+      })
+    }
   }
 
   const selectedDateEvents = getEventsForDate(selectedDate)
@@ -238,10 +442,10 @@ const Calendar = () => {
               </div>
             ) : (
               selectedDateEvents.map(event => (
-                <div key={event.id} className="event-card">
+                <div key={event.id} className="event-card" onClick={() => setSelectedEvent(event)}>
                   <div className="event-header">
                     <h4>{event.title}</h4>
-                    <div className="event-actions">
+                    <div className="event-actions" onClick={e => e.stopPropagation()}>
                       <button onClick={() => handleEditEvent(event)}>
                         <Edit size={16} />
                       </button>
@@ -262,10 +466,10 @@ const Calendar = () => {
                         <span>{event.time}</span>
                       </div>
                     )}
-                    {event.location && (
+                    {(event.location || event.placeName) && (
                       <div className="event-detail">
                         <MapPin size={14} />
-                        <span>{event.location}</span>
+                        <span>{event.placeName || event.location}</span>
                       </div>
                     )}
                     {event.isPublic && (
@@ -274,9 +478,70 @@ const Calendar = () => {
                         <span>Herkese açık</span>
                       </div>
                     )}
+                    {event.photoCount > 0 && (
+                      <div className="event-detail">
+                        <Camera size={14} />
+                        <span>{event.photoCount} fotoğraf</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
+            )}
+          </div>
+
+          {/* Günlük Fotoğrafları Bölümü */}
+          <div className="diary-photos-section">
+            <div className="diary-photos-header">
+              <h4>
+                <BookOpen size={16} />
+                Günlük Fotoğrafları ({diaryPhotos.length})
+              </h4>
+              <button 
+                className="add-diary-photo-btn"
+                onClick={() => diaryFileInputRef.current?.click()}
+              >
+                <Camera size={14} />
+                Fotoğraf Ekle
+              </button>
+              <input
+                ref={diaryFileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleDiaryPhotoAdd}
+                style={{ display: 'none' }}
+              />
+            </div>
+            
+            {diaryPhotos.length > 0 ? (
+              <div className="diary-photos-grid">
+                {diaryPhotos.map((photo, index) => (
+                  <div key={photo.id} className="diary-photo-item">
+                    <img 
+                      src={photo.url} 
+                      alt={`Fotoğraf ${index + 1}`}
+                      onClick={() => { setSelectedPhotoIndex(index); setShowDiaryPhotos(true); }}
+                    />
+                    <button 
+                      className="delete-photo-btn"
+                      onClick={(e) => { e.stopPropagation(); handleDiaryPhotoDelete(photo.id); }}
+                      title="Sil"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                    {photo.source && photo.source !== 'diary' && (
+                      <span className="photo-source">{photo.source === 'event' ? 'Etkinlik' : 'Harita'}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-diary-photos">
+                <Camera size={24} />
+                <p>Bu gün için fotoğraf yok</p>
+                <small>Fotoğraf ekleyerek anılarınızı kaydedin</small>
+              </div>
             )}
           </div>
         </div>
@@ -393,6 +658,194 @@ const Calendar = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Etkinlik Detay Modal */}
+      {selectedEvent && (
+        <div className="modal-overlay" onClick={() => setSelectedEvent(null)}>
+          <div className="modal event-detail-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{selectedEvent.title}</h3>
+              <button onClick={() => setSelectedEvent(null)}>×</button>
+            </div>
+            
+            <div className="event-detail-content">
+              {selectedEvent.description && (
+                <p className="event-full-description">{selectedEvent.description}</p>
+              )}
+              
+              <div className="event-meta-list">
+                {selectedEvent.time && (
+                  <div className="meta-item">
+                    <Clock size={18} />
+                    <span>{selectedEvent.time}</span>
+                  </div>
+                )}
+                {(selectedEvent.location || selectedEvent.placeName) && (
+                  <div className="meta-item">
+                    <MapPin size={18} />
+                    <span>{selectedEvent.placeName || selectedEvent.location}</span>
+                  </div>
+                )}
+                {selectedEvent.isPublic && (
+                  <div className="meta-item">
+                    <Users size={18} />
+                    <span>Herkese açık</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Fotoğraf Galerisi */}
+              <div className="calendar-photos-section">
+                <div className="photos-header">
+                  <h4>
+                    <ImageIcon size={16} />
+                    Fotoğraflar ({eventPhotos.length})
+                  </h4>
+                  <button 
+                    className="add-photo-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Camera size={14} />
+                    Ekle
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoAdd}
+                    style={{ display: 'none' }}
+                  />
+                </div>
+                
+                {eventPhotos.length > 0 ? (
+                  <div className="calendar-photos-grid">
+                    {eventPhotos.map((photo, index) => (
+                      <div 
+                        key={photo.id} 
+                        className="calendar-photo-item"
+                      >
+                        <img 
+                          src={photo.url} 
+                          alt={`Fotoğraf ${index + 1}`}
+                          onClick={() => { setSelectedPhotoIndex(index); setShowPhotoModal(true); }}
+                        />
+                        <div className="photo-actions-overlay">
+                          <button 
+                            className="save-to-diary-btn"
+                            onClick={(e) => { e.stopPropagation(); handleSavePhotoToDiary(photo); }}
+                            title="Ajandama Kaydet"
+                          >
+                            <BookOpen size={12} />
+                          </button>
+                          <button 
+                            className="delete-photo-btn"
+                            onClick={(e) => { e.stopPropagation(); handlePhotoDelete(photo.id); }}
+                            title="Sil"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        {photo.expiresAt && (
+                          <span className="photo-expires">24s</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="no-photos-message">
+                    <Camera size={24} />
+                    <p>Henüz fotoğraf yok</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fotoğraf Görüntüleme Modal */}
+      {showPhotoModal && eventPhotos.length > 0 && (
+        <div className="photo-modal-overlay" onClick={() => setShowPhotoModal(false)}>
+          <div className="photo-modal-content" onClick={e => e.stopPropagation()}>
+            <button className="photo-modal-close" onClick={() => setShowPhotoModal(false)}>
+              <X size={24} />
+            </button>
+            
+            <img src={eventPhotos[selectedPhotoIndex].url} alt="Fotoğraf" className="photo-modal-image" />
+            
+            {eventPhotos.length > 1 && (
+              <div className="photo-nav-buttons">
+                <button 
+                  onClick={() => setSelectedPhotoIndex(prev => prev === 0 ? eventPhotos.length - 1 : prev - 1)}
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <span>{selectedPhotoIndex + 1} / {eventPhotos.length}</span>
+                <button 
+                  onClick={() => setSelectedPhotoIndex(prev => prev === eventPhotos.length - 1 ? 0 : prev + 1)}
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </div>
+            )}
+            
+            <div className="photo-modal-actions">
+              <button 
+                className="save-to-diary-btn-large"
+                onClick={() => handleSavePhotoToDiary(eventPhotos[selectedPhotoIndex])}
+              >
+                <BookOpen size={16} />
+                Ajandama Kaydet
+              </button>
+              <button 
+                className="photo-delete-btn"
+                onClick={() => handlePhotoDelete(eventPhotos[selectedPhotoIndex].id)}
+              >
+                <Trash2 size={16} />
+                Sil
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Günlük Fotoğraf Görüntüleme Modal */}
+      {showDiaryPhotos && diaryPhotos.length > 0 && (
+        <div className="photo-modal-overlay" onClick={() => setShowDiaryPhotos(false)}>
+          <div className="photo-modal-content" onClick={e => e.stopPropagation()}>
+            <button className="photo-modal-close" onClick={() => setShowDiaryPhotos(false)}>
+              <X size={24} />
+            </button>
+            
+            <img src={diaryPhotos[selectedPhotoIndex].url} alt="Fotoğraf" className="photo-modal-image" />
+            
+            {diaryPhotos.length > 1 && (
+              <div className="photo-nav-buttons">
+                <button 
+                  onClick={() => setSelectedPhotoIndex(prev => prev === 0 ? diaryPhotos.length - 1 : prev - 1)}
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <span>{selectedPhotoIndex + 1} / {diaryPhotos.length}</span>
+                <button 
+                  onClick={() => setSelectedPhotoIndex(prev => prev === diaryPhotos.length - 1 ? 0 : prev + 1)}
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </div>
+            )}
+            
+            <button 
+              className="photo-delete-btn"
+              onClick={() => { handleDiaryPhotoDelete(diaryPhotos[selectedPhotoIndex].id); setShowDiaryPhotos(false); }}
+            >
+              <Trash2 size={16} />
+              Sil
+            </button>
           </div>
         </div>
       )}

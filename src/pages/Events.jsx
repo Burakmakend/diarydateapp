@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNotification } from '../context/NotificationContext'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
-import { Plus, MapPin, Clock, Users, Calendar, Filter, Search, Star } from 'lucide-react'
+import { Plus, MapPin, Clock, Users, Calendar, Filter, Search, Star, Camera, Image as ImageIcon, X, Heart, Trash2, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
 import LocationPicker from '../components/LocationPicker'
+import eventService from '../services/eventService'
+import diaryService from '../services/diaryService'
 import './Events.css'
 
 const Events = () => {
@@ -41,6 +43,11 @@ const Events = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
   const [sortBy, setSortBy] = useState('date') // date, popularity, newest
+  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [eventPhotos, setEventPhotos] = useState([])
+  const [showPhotoModal, setShowPhotoModal] = useState(false)
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0)
+  const fileInputRef = useRef(null)
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
@@ -55,92 +62,35 @@ const Events = () => {
   })
 
   useEffect(() => {
-    // Simulated public events
-    const mockEvents = [
-      {
-        id: 1,
-        title: 'Hafta Sonu Yürüyüşü',
-        description: 'Doğada güzel bir yürüyüş yapmak isteyen herkesi bekliyoruz!',
-        date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-        time: '09:00',
-        location: 'Belgrad Ormanı',
-        category: 'sports',
-        organizer: {
-          id: 2,
-          name: 'Ahmet Yılmaz',
-          avatar: null
-        },
-        participants: [
-          { id: 2, name: 'Ahmet Yılmaz' },
-          { id: 3, name: 'Ayşe Demir' },
-          { id: 4, name: 'Mehmet Kaya' }
-        ],
-        maxParticipants: 10,
-        isPublic: true
-      },
-      {
-        id: 2,
-        title: 'Kahve ve Sohbet',
-        description: 'Rahat bir ortamda kahve içip sohbet edelim.',
-        date: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        time: '15:30',
-        location: 'Starbucks Nişantaşı',
-        category: 'social',
-        organizer: {
-          id: 3,
-          name: 'Ayşe Demir',
-          avatar: null
-        },
-        participants: [
-          { id: 3, name: 'Ayşe Demir' },
-          { id: 5, name: 'Fatma Özkan' }
-        ],
-        maxParticipants: 6,
-        isPublic: true
-      },
-      {
-        id: 3,
-        title: 'Fotoğrafçılık Workshop',
-        description: 'Temel fotoğrafçılık tekniklerini öğrenelim.',
-        date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-        time: '14:00',
-        location: 'Sanat Merkezi',
-        category: 'education',
-        organizer: {
-          id: 4,
-          name: 'Mehmet Kaya',
-          avatar: null
-        },
-        participants: [
-          { id: 4, name: 'Mehmet Kaya' }
-        ],
-        maxParticipants: 15,
-        isPublic: true
-      }
-    ]
-    setEvents(mockEvents)
-
-    // Simulated user's events
-    const userEvents = [
-      {
-        id: 4,
-        title: 'Kitap Kulübü Toplantısı',
-        description: 'Bu ayın kitabını tartışacağız.',
-        date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-        time: '19:00',
-        location: 'Kafe Kitap',
-        category: 'education',
-        organizer: user,
-        participants: [
-          user,
-          { id: 2, name: 'Ahmet Yılmaz' }
-        ],
-        maxParticipants: 8,
-        isPublic: true
-      }
-    ]
-    setMyEvents(userEvents)
+    // EventService'den etkinlikleri yükle
+    loadEvents()
+    
+    // EventService değişikliklerini dinle
+    const unsubscribe = eventService.addListener((action, event) => {
+      loadEvents()
+    })
+    
+    return () => unsubscribe()
   }, [user])
+
+  const loadEvents = () => {
+    // Tüm public etkinlikleri yükle
+    const allEvents = eventService.getPublicEvents()
+    
+    // Kullanıcının etkinliklerini yükle
+    const userEvents = eventService.getEventsByUser(user?.id || 'user1')
+    
+    setEvents(allEvents)
+    setMyEvents(userEvents)
+  }
+
+  // Etkinlik seçildiğinde fotoğrafları yükle
+  useEffect(() => {
+    if (selectedEvent) {
+      const photos = eventService.getEventPhotos(selectedEvent.id)
+      setEventPhotos(photos)
+    }
+  }, [selectedEvent])
 
   const categories = {
     all: 'Tümü',
@@ -181,41 +131,151 @@ const Events = () => {
   const handleCreateEvent = (e) => {
     e.preventDefault()
     
-    const newEvent = {
-      id: Date.now(),
-      ...eventForm,
-      date: new Date(eventForm.date),
-      organizer: user,
-      participants: [user],
-      maxParticipants: parseInt(eventForm.maxParticipants) || 10
-    }
+    // EventService kullanarak etkinlik oluştur
+    const datetime = new Date(`${eventForm.date}T${eventForm.time}`)
     
-    if (eventForm.isPublic) {
-      setEvents([...events, newEvent])
-    }
-    setMyEvents([...myEvents, newEvent])
-    
-    addNotification({
-      type: 'toast',
-      title: 'Etkinlik oluşturuldu',
-      message: 'Yeni etkinlik başarıyla oluşturuldu'
+    const result = eventService.createEvent({
+      title: eventForm.title,
+      description: eventForm.description,
+      datetime: datetime.toISOString(),
+      time: eventForm.time,
+      placeName: eventForm.location,
+      coords: eventForm.locationData?.coords,
+      address: eventForm.locationData?.address,
+      region: eventForm.locationData?.region,
+      visibility: eventForm.visibility,
+      category: eventForm.category,
+      maxParticipants: eventForm.maxParticipants,
+      creatorUid: user?.id || 'user1',
+      creatorName: user?.name || 'Kullanıcı',
+      creatorType: 'user',
+      isPublic: eventForm.visibility === 'PUBLIC'
     })
     
-    setShowCreateModal(false)
-    setEventForm({
-      title: '',
-      description: '',
-      date: '',
-      time: '',
-      location: '',
-      category: 'social',
-      maxParticipants: '',
-      isPublic: true
+    if (result.success) {
+      addNotification({
+        type: 'toast',
+        title: 'Etkinlik oluşturuldu',
+        message: 'Yeni etkinlik başarıyla oluşturuldu'
+      })
+      
+      setShowCreateModal(false)
+      setEventForm({
+        title: '',
+        description: '',
+        date: '',
+        time: '',
+        location: '',
+        locationData: null,
+        category: 'social',
+        maxParticipants: '',
+        isPublic: true,
+        visibility: 'PUBLIC'
+      })
+    } else {
+      addNotification({
+        type: 'toast',
+        title: 'Hata',
+        message: result.error || 'Etkinlik oluşturulamadı'
+      })
+    }
+  }
+
+  // Fotoğraf ekleme
+  const handlePhotoAdd = (e) => {
+    if (!selectedEvent) return
+    
+    const files = Array.from(e.target.files)
+    
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        addNotification({
+          type: 'toast',
+          title: 'Hata',
+          message: 'Sadece resim dosyaları yüklenebilir'
+        })
+        return
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        addNotification({
+          type: 'toast',
+          title: 'Hata',
+          message: 'Dosya boyutu 5MB\'dan küçük olmalıdır'
+        })
+        return
+      }
+      
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const result = eventService.addPhotoToEvent(selectedEvent.id, {
+          url: event.target.result,
+          uploadedBy: user?.id || 'user1',
+          uploaderName: user?.name || 'Kullanıcı'
+        })
+        
+        if (result.success) {
+          const photos = eventService.getEventPhotos(selectedEvent.id)
+          setEventPhotos(photos)
+          
+          addNotification({
+            type: 'toast',
+            title: 'Başarılı',
+            message: 'Fotoğraf eklendi'
+          })
+        }
+      }
+      reader.readAsDataURL(file)
     })
+    
+    e.target.value = ''
+  }
+
+  // Fotoğraf silme
+  const handlePhotoDelete = (photoId) => {
+    if (!selectedEvent) return
+    
+    const result = eventService.deletePhoto(selectedEvent.id, photoId)
+    if (result.success) {
+      const photos = eventService.getEventPhotos(selectedEvent.id)
+      setEventPhotos(photos)
+      setShowPhotoModal(false)
+      
+      addNotification({
+        type: 'toast',
+        title: 'Başarılı',
+        message: 'Fotoğraf silindi'
+      })
+    }
+  }
+
+  // Fotoğrafı ajandaya kaydet
+  const handleSavePhotoToDiary = (photo) => {
+    // Etkinlik tarihini al
+    const eventDate = selectedEvent?.datetime ? new Date(selectedEvent.datetime) : new Date()
+    
+    const result = diaryService.addPhotoToDiary(eventDate, {
+      url: photo.url,
+      uploadedBy: user?.id || 'user1',
+      uploaderName: user?.name || 'Kullanıcı',
+      source: 'event',
+      caption: `${selectedEvent?.title || 'Etkinlik'} etkinliğinden`
+    })
+    
+    if (result.success) {
+      addNotification({
+        type: 'toast',
+        title: 'Başarılı',
+        message: 'Fotoğraf ajandanıza kaydedildi'
+      })
+    }
   }
 
   const handleJoinEvent = (event) => {
-    if (event.participants.some(p => p.id === user.id)) {
+    const userId = user?.id || 'user1'
+    const userName = user?.name || 'Kullanıcı'
+    
+    if (event.participants?.some(p => p.id === userId)) {
       addNotification({
         type: 'toast',
         title: 'Zaten katılıyorsunuz',
@@ -224,7 +284,7 @@ const Events = () => {
       return
     }
 
-    if (event.participants.length >= event.maxParticipants) {
+    if (event.maxParticipants && event.participants?.length >= event.maxParticipants) {
       addNotification({
         type: 'toast',
         title: 'Etkinlik dolu',
@@ -233,41 +293,69 @@ const Events = () => {
       return
     }
 
-    const updatedEvent = {
-      ...event,
-      participants: [...event.participants, user]
-    }
-
-    setEvents(events.map(e => e.id === event.id ? updatedEvent : e))
+    const result = eventService.joinEvent(event.id, userId, userName)
     
-    addNotification({
-      type: 'toast',
-      title: 'Etkinliğe katıldınız',
-      message: `"${event.title}" etkinliğine başarıyla katıldınız`
-    })
+    if (result.success) {
+      addNotification({
+        type: 'toast',
+        title: 'Etkinliğe katıldınız',
+        message: `"${event.title}" etkinliğine başarıyla katıldınız`
+      })
+    } else {
+      addNotification({
+        type: 'toast',
+        title: 'Hata',
+        message: result.error
+      })
+    }
   }
 
   const handleLeaveEvent = (event) => {
-    const updatedEvent = {
-      ...event,
-      participants: event.participants.filter(p => p.id !== user.id)
-    }
-
-    setEvents(events.map(e => e.id === event.id ? updatedEvent : e))
+    const userId = user?.id || 'user1'
     
-    addNotification({
-      type: 'toast',
-      title: 'Etkinlikten ayrıldınız',
-      message: `"${event.title}" etkinliğinden ayrıldınız`
-    })
+    const result = eventService.leaveEvent(event.id, userId)
+    
+    if (result.success) {
+      addNotification({
+        type: 'toast',
+        title: 'Etkinlikten ayrıldınız',
+        message: `"${event.title}" etkinliğinden ayrıldınız`
+      })
+    }
   }
 
   const isUserParticipant = (event) => {
-    return event.participants.some(p => p.id === user.id)
+    const userId = user?.id || 'user1'
+    return event.participants?.some(p => p.id === userId)
   }
 
   const isEventFull = (event) => {
-    return event.participants.length >= event.maxParticipants
+    if (!event.maxParticipants) return false
+    return (event.participants?.length || 0) >= event.maxParticipants
+  }
+
+  // Event için organizer bilgisini al
+  const getEventOrganizer = (event) => {
+    return {
+      id: event.creatorUid,
+      name: event.creatorName || 'Kullanıcı',
+      avatar: event.creatorAvatar
+    }
+  }
+
+  // Event tarihini formatla
+  const formatEventDate = (event) => {
+    try {
+      const date = event.datetime ? new Date(event.datetime) : event.date
+      return format(date, 'dd MMMM yyyy', { locale: tr })
+    } catch {
+      return 'Tarih belirtilmemiş'
+    }
+  }
+
+  // Event konumunu al
+  const getEventLocation = (event) => {
+    return event.placeName || event.location || 'Konum belirtilmemiş'
   }
 
   return (
@@ -344,22 +432,22 @@ const Events = () => {
               </div>
             ) : (
               filteredEvents.map(event => (
-                <div key={event.id} className="event-card">
+                <div key={event.id} className="event-card" onClick={() => setSelectedEvent(event)}>
                   <div className="event-header">
                     <div className="event-category">
                       <span className={`category-badge ${event.category}`}>
-                        {categories[event.category]}
+                        {categories[event.category] || 'Etkinlik'}
                       </span>
                     </div>
                     <div className="event-organizer">
                       <img 
-                    src={event.organizer.avatar || getDefaultAvatar(event.organizer.name)} 
-                    alt={event.organizer.name}
+                    src={getEventOrganizer(event).avatar || getDefaultAvatar(getEventOrganizer(event).name)} 
+                    alt={getEventOrganizer(event).name}
                     onError={(e) => {
-                      e.target.src = getDefaultAvatar(event.organizer.name)
+                      e.target.src = getDefaultAvatar(getEventOrganizer(event).name)
                     }}
                   />
-                      <span>{event.organizer.name}</span>
+                      <span>{getEventOrganizer(event).name}</span>
                     </div>
                   </div>
                   
@@ -369,25 +457,25 @@ const Events = () => {
                   <div className="event-details">
                     <div className="event-detail">
                       <Calendar size={16} />
-                      <span>{format(event.date, 'dd MMMM yyyy', { locale: tr })}</span>
+                      <span>{formatEventDate(event)}</span>
                     </div>
                     <div className="event-detail">
                       <Clock size={16} />
-                      <span>{event.time}</span>
+                      <span>{event.time || '00:00'}</span>
                     </div>
                     <div className="event-detail">
                       <MapPin size={16} />
-                      <span>{event.location}</span>
+                      <span>{getEventLocation(event)}</span>
                     </div>
                     <div className="event-detail">
                       <Users size={16} />
-                      <span>{event.participants.length}/{event.maxParticipants} kişi</span>
+                      <span>{event.participants?.length || 0}/{event.maxParticipants || '∞'} kişi</span>
                     </div>
                   </div>
                   
                   <div className="event-participants">
                     <div className="participants-avatars">
-                      {event.participants.slice(0, 3).map(participant => (
+                      {(event.participants || []).slice(0, 3).map(participant => (
                         <img 
                           key={participant.id} 
                           src={participant.avatar || getDefaultAvatar(participant.name)} 
@@ -395,7 +483,7 @@ const Events = () => {
                           title={participant.name}
                         />
                       ))}
-                      {event.participants.length > 3 && (
+                      {(event.participants?.length || 0) > 3 && (
                         <span className="more-participants">
                           +{event.participants.length - 3}
                         </span>
@@ -442,11 +530,11 @@ const Events = () => {
           ) : (
             <div className="events-grid">
               {myEvents.map(event => (
-                <div key={event.id} className="event-card my-event">
+                <div key={event.id} className="event-card my-event" onClick={() => setSelectedEvent(event)}>
                   <div className="event-header">
                     <div className="event-category">
                       <span className={`category-badge ${event.category}`}>
-                        {categories[event.category]}
+                        {categories[event.category] || 'Etkinlik'}
                       </span>
                       <Star className="organizer-star" size={16} />
                     </div>
@@ -458,25 +546,25 @@ const Events = () => {
                   <div className="event-details">
                     <div className="event-detail">
                       <Calendar size={16} />
-                      <span>{format(event.date, 'dd MMMM yyyy', { locale: tr })}</span>
+                      <span>{formatEventDate(event)}</span>
                     </div>
                     <div className="event-detail">
                       <Clock size={16} />
-                      <span>{event.time}</span>
+                      <span>{event.time || '00:00'}</span>
                     </div>
                     <div className="event-detail">
                       <MapPin size={16} />
-                      <span>{event.location}</span>
+                      <span>{getEventLocation(event)}</span>
                     </div>
                     <div className="event-detail">
                       <Users size={16} />
-                      <span>{event.participants.length}/{event.maxParticipants} kişi</span>
+                      <span>{event.participants?.length || 0}/{event.maxParticipants || '∞'} kişi</span>
                     </div>
                   </div>
                   
                   <div className="event-participants">
                     <div className="participants-avatars">
-                      {event.participants.slice(0, 3).map(participant => (
+                      {(event.participants || []).slice(0, 3).map(participant => (
                         <img 
                           key={participant.id} 
                           src={participant.avatar || getDefaultAvatar(participant.name)} 
@@ -484,7 +572,7 @@ const Events = () => {
                           title={participant.name}
                         />
                       ))}
-                      {event.participants.length > 3 && (
+                      {(event.participants?.length || 0) > 3 && (
                         <span className="more-participants">
                           +{event.participants.length - 3}
                         </span>
@@ -493,7 +581,7 @@ const Events = () => {
                   </div>
                   
                   <div className="event-actions">
-                    <button className="manage-btn">
+                    <button className="manage-btn" onClick={(e) => { e.stopPropagation(); setSelectedEvent(event); }}>
                       Yönet
                     </button>
                   </div>
@@ -653,6 +741,185 @@ const Events = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Etkinlik Detay Modal */}
+      {selectedEvent && (
+        <div className="modal-overlay" onClick={() => setSelectedEvent(null)}>
+          <div className="modal event-detail-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{selectedEvent.title}</h3>
+              <button onClick={() => setSelectedEvent(null)}>×</button>
+            </div>
+            
+            <div className="event-detail-content">
+              <div className="event-info-section">
+                <p className="event-full-description">{selectedEvent.description}</p>
+                
+                <div className="event-meta-grid">
+                  <div className="meta-item">
+                    <Calendar size={20} />
+                    <div>
+                      <strong>Tarih</strong>
+                      <span>{formatEventDate(selectedEvent)}</span>
+                    </div>
+                  </div>
+                  <div className="meta-item">
+                    <Clock size={20} />
+                    <div>
+                      <strong>Saat</strong>
+                      <span>{selectedEvent.time || '00:00'}</span>
+                    </div>
+                  </div>
+                  <div className="meta-item">
+                    <MapPin size={20} />
+                    <div>
+                      <strong>Konum</strong>
+                      <span>{getEventLocation(selectedEvent)}</span>
+                    </div>
+                  </div>
+                  <div className="meta-item">
+                    <Users size={20} />
+                    <div>
+                      <strong>Katılımcılar</strong>
+                      <span>{selectedEvent.participants?.length || 0}/{selectedEvent.maxParticipants || '∞'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fotoğraf Galerisi Bölümü */}
+              <div className="event-photos-section">
+                <div className="photos-header">
+                  <h4>
+                    <ImageIcon size={18} />
+                    Fotoğraflar ({eventPhotos.length})
+                  </h4>
+                  <button 
+                    className="add-photo-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Camera size={16} />
+                    Fotoğraf Ekle
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoAdd}
+                    style={{ display: 'none' }}
+                  />
+                </div>
+                
+                {eventPhotos.length > 0 ? (
+                  <div className="event-photos-grid">
+                    {eventPhotos.map((photo, index) => (
+                      <div 
+                        key={photo.id} 
+                        className="event-photo-item"
+                        onClick={() => { setSelectedPhotoIndex(index); setShowPhotoModal(true); }}
+                      >
+                        <img src={photo.url} alt={`Fotoğraf ${index + 1}`} />
+                        {photo.likes > 0 && (
+                          <div className="photo-likes">
+                            <Heart size={12} fill="#e74c3c" />
+                            {photo.likes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="no-photos">
+                    <Camera size={32} />
+                    <p>Henüz fotoğraf eklenmemiş</p>
+                    <small>İlk fotoğrafı ekleyen siz olun!</small>
+                  </div>
+                )}
+              </div>
+
+              {/* Etkinlik Aksiyonları */}
+              <div className="event-detail-actions">
+                {isUserParticipant(selectedEvent) ? (
+                  <button 
+                    className="leave-btn full-width"
+                    onClick={() => { handleLeaveEvent(selectedEvent); setSelectedEvent(null); }}
+                  >
+                    Etkinlikten Ayrıl
+                  </button>
+                ) : (
+                  <button 
+                    className={`join-btn full-width ${isEventFull(selectedEvent) ? 'disabled' : ''}`}
+                    onClick={() => { handleJoinEvent(selectedEvent); }}
+                    disabled={isEventFull(selectedEvent)}
+                  >
+                    {isEventFull(selectedEvent) ? 'Etkinlik Dolu' : 'Etkinliğe Katıl'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fotoğraf Görüntüleme Modal */}
+      {showPhotoModal && eventPhotos.length > 0 && (
+        <div className="photo-modal-overlay" onClick={() => setShowPhotoModal(false)}>
+          <div className="photo-modal-content" onClick={e => e.stopPropagation()}>
+            <button className="photo-modal-close" onClick={() => setShowPhotoModal(false)}>
+              <X size={24} />
+            </button>
+            
+            <div className="photo-modal-image">
+              <img src={eventPhotos[selectedPhotoIndex].url} alt="Fotoğraf" />
+            </div>
+            
+            {eventPhotos.length > 1 && (
+              <>
+                <button 
+                  className="photo-nav photo-prev"
+                  onClick={() => setSelectedPhotoIndex(prev => prev === 0 ? eventPhotos.length - 1 : prev - 1)}
+                >
+                  <ChevronLeft size={32} />
+                </button>
+                <button 
+                  className="photo-nav photo-next"
+                  onClick={() => setSelectedPhotoIndex(prev => prev === eventPhotos.length - 1 ? 0 : prev + 1)}
+                >
+                  <ChevronRight size={32} />
+                </button>
+              </>
+            )}
+            
+            <div className="photo-modal-info">
+              <span>{selectedPhotoIndex + 1} / {eventPhotos.length}</span>
+              <div className="photo-modal-actions">
+                <button 
+                  className="photo-save-diary-action"
+                  onClick={() => handleSavePhotoToDiary(eventPhotos[selectedPhotoIndex])}
+                >
+                  <BookOpen size={18} />
+                  Ajandama Kaydet
+                </button>
+                <button 
+                  className="photo-delete-action"
+                  onClick={() => handlePhotoDelete(eventPhotos[selectedPhotoIndex].id)}
+                >
+                  <Trash2 size={18} />
+                  Sil
+                </button>
+              </div>
+            </div>
+            
+            {eventPhotos[selectedPhotoIndex].expiresAt && (
+              <div className="photo-expires-info">
+                <Clock size={14} />
+                24 saat sonra otomatik silinecek
+              </div>
+            )}
           </div>
         </div>
       )}

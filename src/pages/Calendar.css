@@ -541,3 +541,471 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Event Detail Modal */
+.event-detail-modal {
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.event-detail-content {
+  padding: 20px;
+}
+
+.event-full-description {
+  color: #555;
+  line-height: 1.6;
+  margin: 0 0 20px 0;
+}
+
+.event-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.event-meta-list .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.event-meta-list .meta-item svg {
+  color: #667eea;
+}
+
+/* Calendar Photos Section */
+.calendar-photos-section {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.calendar-photos-section .photos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.calendar-photos-section .photos-header h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.calendar-photos-section .add-photo-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.calendar-photos-section .add-photo-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(102, 126, 234, 0.4);
+}
+
+.calendar-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.calendar-photo-item {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease;
+}
+
+.calendar-photo-item:hover {
+  transform: scale(1.05);
+}
+
+.calendar-photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-photos-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #888;
+}
+
+.no-photos-message svg {
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.no-photos-message p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Photo Modal */
+.photo-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.photo-modal-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.photo-modal-close {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.photo-modal-close:hover {
+  opacity: 1;
+}
+
+.photo-modal-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.photo-nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 16px;
+  color: white;
+}
+
+.photo-nav-buttons button {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  padding: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.photo-nav-buttons button:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.photo-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: rgba(220, 53, 69, 0.2);
+  color: #ff6b6b;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.photo-delete-btn:hover {
+  background: rgba(220, 53, 69, 0.4);
+}
+
+/* Günlük Fotoğrafları Bölümü */
+.diary-photos-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.diary-photos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diary-photos-header h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.add-diary-photo-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.add-diary-photo-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(102, 126, 234, 0.4);
+}
+
+.diary-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.diary-photo-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease;
+}
+
+.diary-photo-item:hover {
+  transform: scale(1.03);
+}
+
+.diary-photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.diary-photo-item .delete-photo-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(220, 53, 69, 0.9);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  padding: 0;
+  margin: 0;
+}
+
+.diary-photo-item:hover .delete-photo-btn {
+  opacity: 1;
+}
+
+.photo-source {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  padding: 2px 6px;
+  background: rgba(102, 126, 234, 0.9);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+.no-diary-photos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #888;
+  text-align: center;
+}
+
+.no-diary-photos svg {
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.no-diary-photos p {
+  margin: 0 0 4px 0;
+  font-size: 0.9rem;
+}
+
+.no-diary-photos small {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+/* Etkinlik Fotoğraf Actions */
+.calendar-photo-item {
+  position: relative;
+}
+
+.photo-actions-overlay {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.calendar-photo-item:hover .photo-actions-overlay {
+  opacity: 1;
+}
+
+.save-to-diary-btn,
+.calendar-photo-item .delete-photo-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  transition: transform 0.2s ease;
+}
+
+.save-to-diary-btn {
+  background: rgba(102, 126, 234, 0.9);
+  color: white;
+}
+
+.save-to-diary-btn:hover {
+  transform: scale(1.1);
+  background: #667eea;
+}
+
+.calendar-photo-item .delete-photo-btn {
+  background: rgba(220, 53, 69, 0.9);
+  color: white;
+}
+
+.calendar-photo-item .delete-photo-btn:hover {
+  transform: scale(1.1);
+}
+
+.photo-expires {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  background: rgba(255, 152, 0, 0.9);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+/* Photo Modal Actions */
+.photo-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.save-to-diary-btn-large {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(102, 126, 234, 0.2);
+  color: #a8b5ff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.save-to-diary-btn-large:hover {
+  background: rgba(102, 126, 234, 0.4);
+}
+
+/* Responsive Calendar Photos */
+@media (max-width: 768px) {
+  .calendar-photos-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .diary-photos-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .diary-photos-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .add-diary-photo-btn {
+    justify-content: center;
+  }
+  
+  .photo-actions-overlay {
+    opacity: 1;
+  }
+  
+  .diary-photo-item .delete-photo-btn {
+    opacity: 1;
+  }
+}

@@ -12,7 +12,10 @@ import {
   Quote, 
   Heading1,
   ArrowLeft,
-  AtSign
+  AtSign,
+  Camera,
+  Image as ImageIcon,
+  Trash2
 } from 'lucide-react'
 import MentionSuggestions from '../components/MentionSuggestions'
 import './DiaryEditor.css'
@@ -23,12 +26,14 @@ const DiaryEditor = () => {
   const navigate = useNavigate()
   const { id } = useParams()
   const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
   
   const [entry, setEntry] = useState({
     content: 'Sevgili günlük, ',
     entryDate: new Date().toISOString().split('T')[0],
     visibility: 'PRIVATE',
-    mentions: []
+    mentions: [],
+    photos: []
   })
   
   const [textStyle, setTextStyle] = useState('normal')
@@ -37,6 +42,7 @@ const DiaryEditor = () => {
   const [mentionPosition, setMentionPosition] = useState({ start: 0, end: 0 })
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [previewPhoto, setPreviewPhoto] = useState(null)
 
   useEffect(() => {
     if (id && id !== 'new') {
@@ -48,11 +54,69 @@ const DiaryEditor = () => {
         content: 'Sevgili günlük, bugün harika bir gün geçirdim. @ahmet ile kahve içtik ve yeni projeler hakkında konuştuk.',
         entryDate: '2025-01-15',
         visibility: 'PUBLIC',
-        mentions: [{ userId: '2', username: 'ahmet' }]
+        mentions: [{ userId: '2', username: 'ahmet' }],
+        photos: []
       }
       setEntry(mockEntry)
     }
   }, [id])
+
+  // Fotoğraf ekleme
+  const handlePhotoAdd = (e) => {
+    const files = Array.from(e.target.files)
+    
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        addNotification({
+          type: 'toast',
+          title: 'Hata',
+          message: 'Sadece resim dosyaları yüklenebilir'
+        })
+        return
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        addNotification({
+          type: 'toast',
+          title: 'Hata',
+          message: 'Dosya boyutu 5MB\'dan küçük olmalıdır'
+        })
+        return
+      }
+      
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const newPhoto = {
+          id: `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          url: event.target.result,
+          name: file.name,
+          uploadedAt: new Date().toISOString()
+        }
+        
+        setEntry(prev => ({
+          ...prev,
+          photos: [...prev.photos, newPhoto]
+        }))
+      }
+      reader.readAsDataURL(file)
+    })
+    
+    // Input'u temizle
+    e.target.value = ''
+  }
+
+  // Fotoğraf silme
+  const handlePhotoDelete = (photoId) => {
+    setEntry(prev => ({
+      ...prev,
+      photos: prev.photos.filter(p => p.id !== photoId)
+    }))
+    addNotification({
+      type: 'toast',
+      title: 'Başarılı',
+      message: 'Fotoğraf silindi'
+    })
+  }
 
   const handleContentChange = (e) => {
     const content = e.target.value
@@ -286,6 +350,26 @@ const DiaryEditor = () => {
               className="date-input"
             />
           </div>
+          
+          <div className="toolbar-section">
+            <label>Fotoğraf:</label>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="photo-add-btn"
+              title="Fotoğraf Ekle"
+            >
+              <Camera size={16} />
+              Fotoğraf Ekle
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handlePhotoAdd}
+              style={{ display: 'none' }}
+            />
+          </div>
         </div>
 
         <div className="editor-content">
@@ -315,6 +399,52 @@ const DiaryEditor = () => {
             </p>
             <p>Markdown formatını destekler: **kalın**, *italik*, # başlık, &gt; alıntı</p>
           </div>
+
+          {/* Fotoğraf Galerisi */}
+          {entry.photos.length > 0 && (
+            <div className="diary-photos-section">
+              <h4>
+                <ImageIcon size={16} />
+                Eklenen Fotoğraflar ({entry.photos.length})
+              </h4>
+              <div className="diary-photos-grid">
+                {entry.photos.map(photo => (
+                  <div key={photo.id} className="diary-photo-item">
+                    <img 
+                      src={photo.url} 
+                      alt={photo.name || 'Fotoğraf'}
+                      onClick={() => setPreviewPhoto(photo)}
+                    />
+                    <button 
+                      className="photo-delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handlePhotoDelete(photo.id)
+                      }}
+                      title="Sil"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Fotoğraf Önizleme Modal */}
+          {previewPhoto && (
+            <div className="photo-preview-modal" onClick={() => setPreviewPhoto(null)}>
+              <div className="photo-preview-content" onClick={e => e.stopPropagation()}>
+                <img src={previewPhoto.url} alt="Önizleme" />
+                <button 
+                  className="photo-preview-close"
+                  onClick={() => setPreviewPhoto(null)}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="editor-footer">
@@ -327,6 +457,12 @@ const DiaryEditor = () => {
             <span className="char-count">
               {entry.content.length} karakter
             </span>
+            {entry.photos.length > 0 && (
+              <span className="photo-count">
+                <Camera size={14} />
+                {entry.photos.length} fotoğraf
+              </span>
+            )}
             {entry.mentions.length > 0 && (
               <span className="mention-count">
                 {entry.mentions.length} kişi etiketlendi
