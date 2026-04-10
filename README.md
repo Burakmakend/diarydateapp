@@ -142,3 +142,15 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICE
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+![SOSYALAJANDA](https://github.com/user-attachments/assets/9f3d219b-35c2-4487-a89b-3f48598a6477)
+![SOSYALAJANDA2](https://github.com/user-attachments/assets/6bae0edd-5481-45ad-bc4e-13e6d8173946)
+![SOSYALAJANDA3](https://github.com/user-attachments/assets/ae2ada14-eefb-483d-aed8-90b2cd964733)
+![SOSYALAJANDA4](https://github.com/user-attachments/assets/60f6fa95-008b-4016-ad78-d184b0797c69)
+![SOSYALAJANDA5](https://github.com/user-attachments/assets/edd12773-76b3-4952-a9d1-22c1f4c47d26)
+
+
+
+
+
+
